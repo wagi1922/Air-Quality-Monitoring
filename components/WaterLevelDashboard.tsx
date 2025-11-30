@@ -1,10 +1,7 @@
 import { 
   Droplets,
   Wind, 
-  Bell,
   Clock,
-  AlertTriangle,
-  CheckCircle,
   TrendingUp,
   Cloudy,
   Thermometer,
@@ -12,7 +9,6 @@ import {
   ThermometerSnowflake
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import CircularGauge from './ui/circular-gauge';
 import LineChart from './ui/line-chart';

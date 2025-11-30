@@ -1,4 +1,4 @@
-import WaterLevelDashboard from './components/WaterLevelDashboard';
+import WaterLevelDashboard from '../components/WaterLevelDashboard';
 
 export default function App() {
   return (
