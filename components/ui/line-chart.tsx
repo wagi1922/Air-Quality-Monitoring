@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface DataPoint {
   time: string;
@@ -7,168 +7,187 @@ interface DataPoint {
 
 interface LineChartProps {
   data: DataPoint[];
-  unit?: string; // Menambahkan prop opsional untuk satuan (default: "")
-  color?: string; // Menambahkan prop opsional untuk warna grafik
+  unit?: string;
+  color?: string;
 }
 
 const LineChart: React.FC<LineChartProps> = ({ data, unit = "", color = "#3B82F6" }) => {
-  const width = 700;
-  const height = 320;
-  const padding = 80;
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding * 2;
+  const [width, setWidth] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setWidth(containerRef.current.offsetWidth);
+      }
+    };
+    window.addEventListener('resize', updateWidth);
+    updateWidth();
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  const height = 300;
+  const paddingX = 50;
+  const paddingY = 40; 
+  
+  if (!data || data.length === 0) {
+    return <div className="h-[300px] w-full flex items-center justify-center text-gray-400">Menunggu data...</div>;
+  }
+
+  const chartWidth = width - (paddingX * 2);
+  const chartHeight = height - (paddingY * 2);
 
   const maxLevel = Math.max(...data.map(d => d.level));
   const minLevel = Math.min(...data.map(d => d.level));
-  // Mencegah pembagian dengan nol jika max dan min sama
-  const range = (maxLevel - minLevel) || (maxLevel * 0.1) || 10; 
+  
+  let yMax = maxLevel;
+  let yMin = minLevel;
+  
+  if (yMax === yMin) {
+    yMax = maxLevel + 1;
+    yMin = maxLevel - 1;
+  } else {
+   
+    const buffer = (maxLevel - minLevel) * 0.1;
+    yMax = maxLevel + buffer;
+    yMin = Math.max(0, minLevel - buffer);
+  }
 
-  // Create smooth curve path
-  const createSmoothPath = (data: DataPoint[]) => {
-    if (data.length < 2) return '';
-    
-    let path = '';
-    for (let i = 0; i < data.length; i++) {
-      const x = padding + (i / (data.length - 1)) * chartWidth;
-      // Menyesuaikan y agar tidak terlalu mepet ke atas/bawah
-      const normalizedY = (data[i].level - minLevel) / range;
-      const y = (height - padding) - (normalizedY * chartHeight);
+  const yRange = yMax - yMin;
+
+  
+  const getX = (index: number) => {
+    if (data.length === 1) return paddingX + (0.5 * chartWidth);
+    return paddingX + (index / (data.length - 1)) * chartWidth;
+  };
+
+  const getY = (level: number) => {
+    const normalizedY = (level - yMin) / yRange;
+    return (height - paddingY) - (normalizedY * chartHeight);
+  };
+
+  const createPath = () => {
+    if (data.length === 0) return "";
+
+    if (data.length === 1) {
+        const y = getY(data[0].level);
+        return `M ${paddingX} ${y} L ${width - paddingX} ${y}`;
+    }
+
+    let path = `M ${getX(0)} ${getY(data[0].level)}`;
+    for (let i = 1; i < data.length; i++) {
+      const x = getX(i);
+      const y = getY(data[i].level);
+      const prevX = getX(i - 1);
+      const prevY = getY(data[i - 1].level);
       
-      if (i === 0) {
-        path += `M ${x} ${y}`;
-      } else {
-        const prevX = padding + ((i - 1) / (data.length - 1)) * chartWidth;
-        const prevNormalizedY = (data[i - 1].level - minLevel) / range;
-        const prevY = (height - padding) - (prevNormalizedY * chartHeight);
-        
-        const cpX1 = prevX + (x - prevX) / 3;
-        const cpX2 = x - (x - prevX) / 3;
-        path += ` C ${cpX1} ${prevY}, ${cpX2} ${y}, ${x} ${y}`;
-      }
+      const cp1x = prevX + (x - prevX) / 2;
+      const cp1y = prevY;
+      const cp2x = x - (x - prevX) / 2;
+      const cp2y = y;
+      
+      path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x} ${y}`;
     }
     return path;
   };
 
-  const smoothPath = createSmoothPath(data);
+  const linePath = createPath();
+
+  const createAreaPath = () => {
+     if (data.length === 1) {
+        const y = getY(data[0].level);
+        return `M ${paddingX} ${y} L ${width - paddingX} ${y} L ${width - paddingX} ${height - paddingY} L ${paddingX} ${height - paddingY} Z`;
+     }
+     return `${linePath} L ${getX(data.length - 1)} ${height - paddingY} L ${getX(0)} ${height - paddingY} Z`;
+  }
 
   return (
-    <div className="w-full h-80 flex items-center justify-center overflow-x-auto">
-      <svg 
-        width={width} 
-        height={height} 
-        className="rounded-lg min-w-full"
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="xMidYMid meet"
-      >
+    <div ref={containerRef} className="w-full h-[300px]">
+      <svg width={width} height={height} className="overflow-visible">
         <defs>
-          <linearGradient id="chartAreaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.4" />
-            <stop offset="50%" stopColor={color} stopOpacity="0.2" />
+          <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
             <stop offset="100%" stopColor={color} stopOpacity="0.0" />
           </linearGradient>
-          <filter id="chartLineGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
-            <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
         </defs>
 
-        {/* Grid lines & Y-axis Labels */}
-        {[0, 25, 50, 75, 100].map((percentage) => {
-          // Menghitung label Y-axis berdasarkan range data asli
-          const value = minLevel + (range * (percentage / 100));
-          const y = (height - padding) - ((percentage / 100) * chartHeight);
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+          const val = yMin + (yRange * ratio);
+          const yPos = (height - paddingY) - (ratio * chartHeight);
           
+          const label = val % 1 === 0 ? val : val.toFixed(1);
+
           return (
-            <g key={percentage}>
-              <line
-                x1={padding}
-                y1={y}
-                x2={width - padding}
-                y2={y}
-                stroke={color}
-                strokeOpacity="0.12"
-                strokeDasharray="6,12"
-                strokeWidth="1"
+            <g key={ratio}>
+              <line 
+                x1={paddingX} y1={yPos} 
+                x2={width - paddingX} y2={yPos} 
+                stroke="#e5e7eb" strokeDasharray="4 4" 
               />
-              <text
-                x={padding - 15}
-                y={y + 5}
-                textAnchor="end"
-                fontSize="11"
-                fill="#6B7280"
-                fontFamily="Inter, Poppins, sans-serif"
-                fontWeight="500"
+              <text 
+                x={paddingX - 10} y={yPos + 4} 
+                textAnchor="end" fontSize="10" fill="#9ca3af"
               >
-                {Math.round(value)}
+                {label}
               </text>
             </g>
           );
         })}
 
-        {/* X-axis labels */}
-        {data.filter((_, index) => index % 2 === 0).map((item, index) => {
-          const x = padding + (index * 2 / (data.length - 1)) * chartWidth;
-          return (
-            <text
-              key={index}
-              x={x}
-              y={height - padding + 30}
-              textAnchor="middle"
-              fontSize="12"
-              fill="#6B7280"
-              fontFamily="Inter, Poppins, sans-serif"
-              fontWeight="500"
-            >
-              {item.time}
-            </text>
-          );
-        })}
+        <path d={createAreaPath()} fill="url(#chartGradient)" />
 
-        {/* Area fill */}
         <path
-          d={`${smoothPath} L ${width - padding} ${height - padding} L ${padding} ${height - padding} Z`}
-          fill="url(#chartAreaGradient)"
-        />
-
-        {/* Smooth line with enhanced glow */}
-        <path
-          d={smoothPath}
+          d={linePath}
           fill="none"
           stroke={color}
-          strokeWidth="4"
-          filter="url(#chartLineGlow)"
-          style={{
-            filter: `drop-shadow(0 0 8px ${color}80)`, // 80 is hex opacity
-          }}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
 
-        {/* Data points */}
-        {data.map((item, index) => {
-          // Recalculate y for points using the same logic as path
-          const normalizedY = (item.level - minLevel) / range;
-          const y = (height - padding) - (normalizedY * chartHeight);
-          const x = padding + (index / (data.length - 1)) * chartWidth;
-          
+        {data.map((d, i) => (
+          <g key={i} className="group">
+            <circle
+              cx={getX(i)}
+              cy={getY(d.level)}
+              r="4"
+              fill="white"
+              stroke={color}
+              strokeWidth="2"
+              className="transition-all hover:r-6 cursor-pointer"
+            />
+            <foreignObject 
+              x={getX(i) - 50} 
+              y={getY(d.level) - 50} 
+              width="100" 
+              height="50" 
+              className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+            >
+              <div className="flex flex-col items-center justify-center">
+                <div className="bg-gray-800 text-white text-xs py-1 px-2 rounded shadow-lg whitespace-nowrap z-50">
+                  <span className="font-bold">{d.time}</span>: {d.level} {unit}
+                </div>
+              </div>
+            </foreignObject>
+          </g>
+        ))}
+
+        {data.map((d, i) => {
+          const step = data.length > 8 ? Math.ceil(data.length / 6) : 1;
+          if (i % step !== 0 && i !== data.length - 1) return null;
+
           return (
-            <g key={index} className="group">
-              <circle
-                cx={x}
-                cy={y}
-                r="6"
-                fill={color}
-                stroke="white"
-                strokeWidth="3"
-                className="transition-all duration-300 hover:r-8 cursor-pointer"
-                style={{
-                  filter: `drop-shadow(0 0 8px ${color}66)`,
-                }}
-              />
-              {/* Tooltip sederhana saat hover */}
-              <title>{`${item.time}: ${item.level} ${unit}`}</title>
-            </g>
+            <text
+              key={i}
+              x={getX(i)}
+              y={height - paddingY + 20}
+              textAnchor="middle"
+              fontSize="11"
+              fill="#6b7280"
+            >
+              {d.time}
+            </text>
           );
         })}
       </svg>
