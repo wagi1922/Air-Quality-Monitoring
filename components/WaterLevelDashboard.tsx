@@ -19,7 +19,8 @@ import CircularGauge from './ui/circular-gauge';
 import LineChart from './ui/line-chart';
 
 export default function WaterLevelDashboard() {
-  const API_URL = "http://jalaniotkel4.my.id/ambil-data"; 
+  const API_URL = "http://jalaniotkel4.my.id/ambil-data";
+  //const API_URL = "http://jalaniotkel4.my.id/ambil-data?limit=1.800"; 
 
   const [sensorData, setSensorData] = useState({
     suhu: 0,
@@ -41,6 +42,7 @@ export default function WaterLevelDashboard() {
     try {
       const response = await axios.get(API_URL);
       const result = response.data;
+      console.log("Data diterima:", result);
 
       if (result && result.status === "Sukses" && Array.isArray(result.data) && result.data.length > 0) {
         const latest = result.data[0];
