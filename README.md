@@ -8,7 +8,9 @@ First, install pakage and run the development server:
 npm install
 # and
 npm run build
-# last
+# or
+npm next build
+# and run
 npm start
 ```
 
