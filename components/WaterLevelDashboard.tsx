@@ -19,8 +19,7 @@ import CircularGauge from './ui/circular-gauge';
 import LineChart from './ui/line-chart';
 
 export default function WaterLevelDashboard() {
-  const API_URL = "http://jalaniotkel4.my.id/ambil-data";
-  //const API_URL = "http://jalaniotkel4.my.id/ambil-data?limit=1.800"; 
+  const API_URL = "https://api.jalaniotkel4.my.id/ambil-data"; 
 
   const [sensorData, setSensorData] = useState({
     suhu: 0,
